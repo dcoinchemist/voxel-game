@@ -13,6 +13,8 @@ object NativeBridge {
     external fun nativeInit()
     external fun nativeResize(width: Int, height: Int)
     external fun nativeFrame()
+    external fun nativeToggleWireframe()
+    external fun nativeStats(): String
 }
 
 class NativeRenderer(private val onInfo: (String) -> Unit) : GLSurfaceView.Renderer {
@@ -27,7 +29,7 @@ class NativeRenderer(private val onInfo: (String) -> Unit) : GLSurfaceView.Rende
         val astc = extensions.contains("GL_KHR_texture_compression_astc_ldr")
         infoText = "GPU: $renderer\nGL: $version\nASTC: $astc"
         NativeBridge.nativeInit()
-        onInfo(infoText)
+        onInfo(infoText + "\n" + NativeBridge.nativeStats())
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -40,7 +42,10 @@ class NativeRenderer(private val onInfo: (String) -> Unit) : GLSurfaceView.Rende
         val now = System.nanoTime()
         if (now - lastTime >= 1_000_000_000L) {
             val fps = frames * 1_000_000_000.0 / (now - lastTime)
-            onInfo(infoText + "\nFPS: " + String.format("%.1f", fps))
+            onInfo(
+                infoText + "\nFPS: " + String.format("%.1f", fps) +
+                    "\n" + NativeBridge.nativeStats()
+            )
             frames = 0
             lastTime = now
         }
