@@ -42,6 +42,7 @@ class MainActivity : Activity() {
         glView.setEGLConfigChooser(8, 8, 8, 0, 24, 0)
         glView.setRenderer(renderer)
         glView.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
+        glView.setOnClickListener { NativeBridge.nativeToggleWireframe() }
 
         val root = FrameLayout(this)
         root.addView(glView)
