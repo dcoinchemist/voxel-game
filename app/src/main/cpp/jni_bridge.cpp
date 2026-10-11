@@ -27,3 +27,18 @@ Java_com_voxelgame_NativeBridge_nativeStats(JNIEnv* env, jobject) {
     std::string s = rendererStats();
     return env->NewStringUTF(s.c_str());
 }
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_voxelgame_NativeBridge_nativeSetMove(JNIEnv*, jobject, jfloat x, jfloat y) {
+    rendererSetMove(x, y);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_voxelgame_NativeBridge_nativeLook(JNIEnv*, jobject, jfloat dYaw, jfloat dPitch) {
+    rendererLook(dYaw, dPitch);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_voxelgame_NativeBridge_nativeSetJump(JNIEnv*, jobject, jboolean pressed) {
+    rendererSetJump(pressed == JNI_TRUE);
+}
