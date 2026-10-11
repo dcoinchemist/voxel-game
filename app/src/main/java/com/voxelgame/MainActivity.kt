@@ -3,6 +3,7 @@ package com.voxelgame
 import android.app.Activity
 import android.graphics.Color
 import android.opengl.GLSurfaceView
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -18,11 +19,18 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        if (Build.VERSION.SDK_INT >= 28) {
+            val lp = window.attributes
+            lp.layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            window.attributes = lp
+        }
+
         overlay = TextView(this)
         overlay.setTextColor(Color.WHITE)
         overlay.setBackgroundColor(0x88000000.toInt())
         overlay.textSize = 12f
-        overlay.setPadding(16, 16, 16, 16)
+        overlay.setPadding(150, 16, 16, 16)
         overlay.text = "Starting..."
 
         val renderer = NativeRenderer { text ->
