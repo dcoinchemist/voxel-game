@@ -8,3 +8,8 @@ void rendererResize(int width, int height);
 void rendererFrame();
 void rendererToggleWireframe();
 std::string rendererStats();
+
+// Input from the touch controls (called from the UI thread).
+void rendererSetMove(float x, float y);
+void rendererLook(float dYawDeg, float dPitchDeg);
+void rendererSetJump(bool pressed);
