@@ -29,11 +29,23 @@ jobs:
       - name: Accept Android SDK licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
-      - name: Restore debug signing key
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: debug-keystore-v1
+      - name: Prepare persistent debug signing key
+        run: |
+          mkdir -p signing
+          if [ ! -f signing/debug.keystore.b64 ]; then
+            keytool -genkeypair -keystore signing/debug.keystore \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+            base64 -w0 signing/debug.keystore > signing/debug.keystore.b64
+            git config user.name "github-actions"
+            git config user.email "github-actions@users.noreply.github.com"
+            git add signing/debug.keystore.b64
+            git commit -m "Add persistent debug signing key"
+            git push origin HEAD:main
+          else
+            base64 -d signing/debug.keystore.b64 > signing/debug.keystore
+          fi
 
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
