@@ -8,10 +8,12 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <mutex>
 #include <vector>
 
 #include "engine/math.h"
 #include "engine/mesher.h"
+#include "engine/player.h"
 
 #define LOG_TAG "VoxelGame"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -56,6 +58,9 @@ double gMeshMs = 0.0;
 int gTotalQuads = 0;
 long long gNaiveFaces = 0;
 
+Player gPlayer;
+bool gPlayerSpawned = false;
+
 GLuint gProgram = 0;
 GLuint gTriEbo = 0;
 GLuint gLineEbo = 0;
@@ -64,7 +69,15 @@ GLint gWireLoc = -1;
 int gWidth = 1;
 int gHeight = 1;
 std::atomic<bool> gWireframe{false};
-std::chrono::steady_clock::time_point gStart;
+std::chrono::steady_clock::time_point gLastFrame;
+
+// Touch input arrives on the UI thread and is consumed on the GL thread.
+std::mutex gInputMutex;
+float gMoveX = 0.0f;
+float gMoveY = 0.0f;
+bool gJump = false;
+float gLookYaw = 0.0f;
+float gLookPitch = 0.0f;
 
 GLuint compileShader(GLenum type, const char* src) {
     GLuint shader = glCreateShader(type);
@@ -162,6 +175,11 @@ void rendererInit() {
     LOGI("rendererInit");
     buildWorldOnce();
 
+    if (!gPlayerSpawned) {
+        gPlayer.spawn(gWorld, 32.5f, 20.5f);
+        gPlayerSpawned = true;
+    }
+
     // Objects from a previous GL context are already gone; just forget them.
     gGpu.clear();
     gProgram = 0;
@@ -196,7 +214,7 @@ void rendererInit() {
         }
         gGpu.push_back(g);
     }
-    gStart = std::chrono::steady_clock::now();
+    gLastFrame = std::chrono::steady_clock::now();
 }
 
 void rendererResize(int width, int height) {
@@ -206,6 +224,28 @@ void rendererResize(int width, int height) {
 }
 
 void rendererFrame() {
+    // Time since the previous frame.
+    auto now = std::chrono::steady_clock::now();
+    float dt = std::chrono::duration<float>(now - gLastFrame).count();
+    gLastFrame = now;
+
+    // Take this frame's input.
+    PlayerInput input;
+    float lookYaw = 0.0f;
+    float lookPitch = 0.0f;
+    {
+        std::lock_guard<std::mutex> lock(gInputMutex);
+        input.moveX = gMoveX;
+        input.moveY = gMoveY;
+        input.jump = gJump;
+        lookYaw = gLookYaw;
+        lookPitch = gLookPitch;
+        gLookYaw = 0.0f;
+        gLookPitch = 0.0f;
+    }
+    gPlayer.look(lookYaw, lookPitch);
+    gPlayer.update(gWorld, dt, input);
+
     bool wire = gWireframe.load();
     if (wire) {
         glClearColor(0.04f, 0.05f, 0.08f, 1.0f);
@@ -219,14 +259,11 @@ void rendererFrame() {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - gStart).count();
-    float angle = t * 0.2f;
-    Vec3 center = {WORLD_SIZE * 0.5f, 8.0f, WORLD_SIZE * 0.5f};
-    Vec3 eye = {center.x + std::cos(angle) * 55.0f, center.y + 28.0f,
-                center.z + std::sin(angle) * 55.0f};
+    Vec3 eye = gPlayer.eyePosition();
+    Vec3 dir = gPlayer.forwardDir();
     float aspect = (float)gWidth / (float)gHeight;
-    Mat4 proj = perspective(60.0f * 3.14159265f / 180.0f, aspect, 0.1f, 300.0f);
-    Mat4 view = lookAt(eye, center, {0.0f, 1.0f, 0.0f});
+    Mat4 proj = perspective(70.0f * 3.14159265f / 180.0f, aspect, 0.05f, 300.0f);
+    Mat4 view = lookAt(eye, eye + dir, {0.0f, 1.0f, 0.0f});
     Mat4 mvp = mul(proj, view);
 
     glUseProgram(gProgram);
@@ -251,11 +288,32 @@ void rendererToggleWireframe() {
     gWireframe.store(!gWireframe.load());
 }
 
+void rendererSetMove(float x, float y) {
+    std::lock_guard<std::mutex> lock(gInputMutex);
+    gMoveX = x;
+    gMoveY = y;
+}
+
+void rendererLook(float dYawDeg, float dPitchDeg) {
+    std::lock_guard<std::mutex> lock(gInputMutex);
+    gLookYaw += dYawDeg;
+    gLookPitch += dPitchDeg;
+}
+
+void rendererSetJump(bool pressed) {
+    std::lock_guard<std::mutex> lock(gInputMutex);
+    gJump = pressed;
+}
+
 std::string rendererStats() {
-    char buf[256];
+    char buf[320];
     snprintf(buf, sizeof(buf),
-             "Chunks: %d  Quads: %d (naive %lld)\nTris: %d  Mesh build: %.1f ms\nTap screen: %s",
+             "Chunks: %d  Quads: %d (naive %lld)\n"
+             "Tris: %d  Mesh build: %.1f ms\n"
+             "Pos: %.1f %.1f %.1f  Ground: %s\n"
+             "Wireframe: %s",
              (int)gMeshes.size(), gTotalQuads, gNaiveFaces, gTotalQuads * 2, gMeshMs,
-             gWireframe.load() ? "shaded view" : "wireframe");
+             gPlayer.pos.x, gPlayer.pos.y, gPlayer.pos.z, gPlayer.onGround ? "yes" : "no",
+             gWireframe.load() ? "on" : "off");
     return std::string(buf);
 }
