@@ -15,6 +15,9 @@ object NativeBridge {
     external fun nativeFrame()
     external fun nativeToggleWireframe()
     external fun nativeStats(): String
+    external fun nativeSetMove(x: Float, y: Float)
+    external fun nativeLook(dYaw: Float, dPitch: Float)
+    external fun nativeSetJump(pressed: Boolean)
 }
 
 class NativeRenderer(private val onInfo: (String) -> Unit) : GLSurfaceView.Renderer {
@@ -40,7 +43,7 @@ class NativeRenderer(private val onInfo: (String) -> Unit) : GLSurfaceView.Rende
         NativeBridge.nativeFrame()
         frames++
         val now = System.nanoTime()
-        if (now - lastTime >= 1_000_000_000L) {
+        if (now - lastTime >= 500_000_000L) {
             val fps = frames * 1_000_000_000.0 / (now - lastTime)
             onInfo(
                 infoText + "\nFPS: " + String.format("%.1f", fps) +
