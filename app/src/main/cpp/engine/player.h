@@ -17,6 +17,10 @@ public:
     float pitch = 0.0f;  // degrees, positive looks up
     bool onGround = false;
 
+    // Visual-only camera drop (<= 0) that eases back to 0 after a step-up,
+    // so climbing a block glides instead of snapping.
+    float camOffset = 0.0f;
+
     static constexpr float RADIUS = 0.3f;
     static constexpr float HEIGHT = 1.8f;
     static constexpr float EYE_HEIGHT = 1.62f;
@@ -25,11 +29,12 @@ public:
     static constexpr float JUMP_SPEED = 8.4f;
     static constexpr float MAX_FALL = 40.0f;
     static constexpr float STEP = 1.0f / 120.0f;  // fixed physics step
+    static constexpr float CAM_SMOOTH_SPEED = 6.0f;  // blocks per second
 
     void spawn(const World& world, float x, float z);
     void look(float dYawDeg, float dPitchDeg);
     void update(const World& world, float dt, const PlayerInput& in);
-    Vec3 eyePosition() const { return {pos.x, pos.y + EYE_HEIGHT, pos.z}; }
+    Vec3 eyePosition() const { return {pos.x, pos.y + EYE_HEIGHT + camOffset, pos.z}; }
     Vec3 forwardDir() const;
 
 private:
@@ -52,6 +57,7 @@ inline void Player::spawn(const World& world, float x, float z) {
     pos = {x, (float)top, z};
     vel = {0.0f, 0.0f, 0.0f};
     onGround = false;
+    camOffset = 0.0f;
 }
 
 inline void Player::look(float dYawDeg, float dPitchDeg) {
@@ -116,6 +122,10 @@ inline void Player::moveAxis(const World& world, int axis, float delta, bool all
             else q.z += delta;
             if (!collides(world, q)) {
                 pos = q;
+                // Physics jumped up one block; drop the camera by the same
+                // amount so it can ease back up smoothly.
+                camOffset -= 1.0f;
+                if (camOffset < -1.5f) camOffset = -1.5f;
                 return;
             }
         }
@@ -164,4 +174,7 @@ inline void Player::update(const World& world, float dt, const PlayerInput& in) 
         step(world, in);
         accumulator_ -= STEP;
     }
+    // Ease the camera back up after a step-up.
+    camOffset += CAM_SMOOTH_SPEED * dt;
+    if (camOffset > 0.0f) camOffset = 0.0f;
 }
