@@ -13,6 +13,7 @@ import android.widget.TextView
 
 class MainActivity : Activity() {
     private lateinit var glView: GLSurfaceView
+    private lateinit var controls: ControlsView
     private lateinit var overlay: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,8 +30,8 @@ class MainActivity : Activity() {
         overlay = TextView(this)
         overlay.setTextColor(Color.WHITE)
         overlay.setBackgroundColor(0x88000000.toInt())
-        overlay.textSize = 12f
-        overlay.setPadding(150, 16, 16, 16)
+        overlay.textSize = 11f
+        overlay.setPadding(150, 8, 16, 8)
         overlay.text = "Starting..."
 
         val renderer = NativeRenderer { text ->
@@ -42,10 +43,18 @@ class MainActivity : Activity() {
         glView.setEGLConfigChooser(8, 8, 8, 0, 24, 0)
         glView.setRenderer(renderer)
         glView.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
-        glView.setOnClickListener { NativeBridge.nativeToggleWireframe() }
+
+        controls = ControlsView(this)
 
         val root = FrameLayout(this)
         root.addView(glView)
+        root.addView(
+            controls,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
         root.addView(
             overlay,
             FrameLayout.LayoutParams(
@@ -64,6 +73,7 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
+        controls.reset()
         glView.onPause()
         super.onPause()
     }
